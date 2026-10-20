@@ -16,10 +16,22 @@ export type ExpenseSplit = {
 export type Expense = {
   id: string;
   description: string;
+  /** Always USD cents — converted once at entry. */
   amountCents: number;
+  /** The amount as entered, in `originalCurrency` (equals amountCents for USD). */
+  originalAmountCents: number;
+  originalCurrency: string;
   paidById: string;
   createdAt: Date;
   splits: ExpenseSplit[];
+};
+
+export type Settlement = {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  amountCents: number;
+  createdAt: Date;
 };
 
 export type GroupSummary = {
@@ -33,6 +45,7 @@ export type GroupSummary = {
 
 export type GroupDetail = GroupSummary & {
   expenses: Expense[];
+  settlements: Settlement[];
   simplifiedDebts: SimplifiedDebt[];
 };
 

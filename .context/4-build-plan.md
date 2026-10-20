@@ -20,10 +20,10 @@ next`; `clerk env pull` for refreshes; verify with `clerk doctor`)
 
 ## 02 UI Foundation (mock data)
 
-- [ ] Dashboard: welcome line, owed/owe tiles, group cards
-- [ ] Group view: expenses list, who-owes-whom sidebar, members
-- [ ] Add-expense modal shell against the typed mock data in `lib/`
-- [ ] View-model types mirror the future Prisma models so the swap is drop-in
+- [x] Dashboard: welcome line, owed/owe tiles, group cards
+- [x] Group view: expenses list, who-owes-whom sidebar, members
+- [x] Add-expense modal shell against the typed mock data in `lib/`
+- [x] View-model types mirror the future Prisma models so the swap is drop-in
 
 ## 02b Visual Reference (screenshots)
 
