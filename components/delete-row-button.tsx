@@ -4,18 +4,15 @@ import { useTransition } from "react";
 import { Loader2Icon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { runMock } from "@/components/use-mock-action";
 
-type DeleteAction = () => Promise<{ error?: string } | void>;
-
-// One client component for every deletable row. Real pages pass a bound server
-// action (deleteExpense.bind(null, groupId, id)); without one it previews.
+// One client component for every deletable row. The server component passes a
+// bound server action: deleteExpense.bind(null, groupId, id).
 export function DeleteRowButton({
   label,
   action,
 }: {
   label: string;
-  action?: DeleteAction;
+  action: () => Promise<{ error?: string }>;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -28,9 +25,8 @@ export function DeleteRowButton({
       disabled={pending}
       onClick={() =>
         startTransition(async () => {
-          if (!action) return runMock();
           const result = await action();
-          if (result?.error) toast.error(result.error);
+          if (result.error) toast.error(result.error);
           else toast.success("Deleted");
         })
       }

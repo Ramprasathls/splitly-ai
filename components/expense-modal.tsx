@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { PencilIcon, PlusIcon } from "lucide-react";
+import { toast } from "sonner";
+import { addExpense, updateExpense } from "@/app/actions/expenses";
 import { MemberAvatar } from "@/components/member-avatars";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,13 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useMockAction } from "@/components/use-mock-action";
-import { CURRENCIES } from "@/lib/currencies";
+import { ENTRY_CURRENCIES } from "@/lib/currencies";
 import { displayName } from "@/lib/members";
+import { parseAmountToCents } from "@/lib/money";
 import type { Expense, Member } from "@/lib/types";
 
 type FormState = {
-  quickText: string;
   description: string;
   amount: string;
   currency: string;
@@ -36,7 +37,7 @@ type FormState = {
   included: string[];
 };
 
-const CURRENCY_ITEMS = CURRENCIES.map((c) => ({ value: c, label: c }));
+const CURRENCY_ITEMS = ENTRY_CURRENCIES.map((c) => ({ value: c, label: c }));
 const SPLIT_ITEMS = [{ value: "equally", label: "equally" }];
 
 // Pill-style selects used inside the "Paid by … and split …" sentence.
@@ -50,7 +51,6 @@ function initialState(
 ): FormState {
   if (expense) {
     return {
-      quickText: "",
       description: expense.description,
       amount: (expense.originalAmountCents / 100).toFixed(2),
       currency: expense.originalCurrency,
@@ -59,7 +59,6 @@ function initialState(
     };
   }
   return {
-    quickText: "",
     description: "",
     amount: "",
     currency: "USD",
@@ -69,21 +68,21 @@ function initialState(
 }
 
 function isValid(form: FormState): boolean {
-  const amount = Number(form.amount);
   return (
     form.description.trim().length > 0 &&
-    /^\d+(\.\d{1,2})?$/.test(form.amount) &&
-    amount > 0 &&
+    parseAmountToCents(form.amount) !== null &&
     form.included.length > 0
   );
 }
 
 // One component serves add AND edit: passing `expense` switches to edit mode.
 export function ExpenseModal({
+  groupId,
   members,
   currentUserId,
   expense,
 }: {
+  groupId: string;
   members: Member[];
   currentUserId: string;
   expense?: Expense;
@@ -92,8 +91,7 @@ export function ExpenseModal({
   const [form, setForm] = useState<FormState>(() =>
     initialState(members, currentUserId, expense),
   );
-  const save = useMockAction();
-  const parse = useMockAction();
+  const [pending, startTransition] = useTransition();
 
   const memberItems = members.map((m) => ({
     value: m.id,
@@ -116,6 +114,27 @@ export function ExpenseModal({
       included: checked
         ? [...form.included, id]
         : form.included.filter((x) => x !== id),
+    });
+  }
+
+  function save() {
+    const input = {
+      description: form.description,
+      amount: form.amount,
+      currency: form.currency,
+      paidById: form.paidById,
+      memberIds: form.included,
+    };
+    startTransition(async () => {
+      const result = expense
+        ? await updateExpense(groupId, expense.id, input)
+        : await addExpense(groupId, input);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(expense ? "Expense updated" : "Expense added");
+      setOpen(false);
     });
   }
 
@@ -151,29 +170,9 @@ export function ExpenseModal({
           className="grid gap-5"
           onSubmit={(e) => {
             e.preventDefault();
-            save.run(() => setOpen(false));
+            save();
           }}
         >
-          <div className="grid gap-2 rounded-lg bg-primary/5 p-3">
-            <Label htmlFor="quick-add">✨ Quick add with AI</Label>
-            <div className="flex gap-2">
-              <Input
-                id="quick-add"
-                value={form.quickText}
-                onChange={(e) => patch({ quickText: e.target.value })}
-                placeholder='e.g. "dinner in Tokyo 4500 yen"'
-              />
-              <Button
-                type="button"
-                variant="outline"
-                disabled={parse.pending || !form.quickText.trim()}
-                onClick={() => parse.run()}
-              >
-                {parse.pending ? "Parsing…" : "Parse"}
-              </Button>
-            </div>
-          </div>
-
           <div className="grid gap-2">
             <Label htmlFor="expense-description">Description</Label>
             <Input
@@ -269,12 +268,8 @@ export function ExpenseModal({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={save.pending || !isValid(form)}>
-              {save.pending
-                ? "Saving…"
-                : expense
-                  ? "Save changes"
-                  : "Save expense"}
+            <Button type="submit" disabled={pending || !isValid(form)}>
+              {pending ? "Saving…" : expense ? "Save changes" : "Save expense"}
             </Button>
           </DialogFooter>
         </form>

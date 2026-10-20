@@ -39,13 +39,13 @@ with pictures, not longer prompts:
 
 ## 03 Database & Server Actions
 
-- [ ] Prisma schema per `3-database-schema.md` (User id = Clerk userId;
+- [x] Prisma schema per `3-database-schema.md` (User id = Clerk userId;
       integer cents; splits + settlements)
-- [ ] Server actions: createGroup (creator = admin, redirect into group),
+- [x] Server actions: createGroup (creator = admin, redirect into group),
       addMember (by email, must have an account), addExpense, settleUp
-- [ ] Every action: `await auth()` first, membership verified, revalidate
-- [ ] `lib/ensure-user.ts` upserts the signed-in user as dev fallback
-- [ ] Mock data deleted; pages query through `lib/queries.ts`
+- [x] Every action: `await auth()` first, membership verified, revalidate
+- [x] `lib/ensure-user.ts` upserts the signed-in user as dev fallback
+- [x] Mock data deleted; pages query through `lib/queries.ts`
 
 ## 04 Debt Simplification
 

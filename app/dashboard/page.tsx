@@ -5,6 +5,7 @@ import { CreateGroupForm } from "@/components/create-group-form";
 import { CurrencySelect } from "@/components/currency-select";
 import { MemberAvatars } from "@/components/member-avatars";
 import { Card } from "@/components/ui/card";
+import { ensureUser } from "@/lib/ensure-user";
 import { formatCents } from "@/lib/format";
 import { getGroups } from "@/lib/queries";
 
@@ -12,7 +13,8 @@ export const metadata = { title: "Dashboard · Splitly" };
 
 export default async function DashboardPage() {
   const { userId } = await auth.protect();
-  const [user, groups] = await Promise.all([currentUser(), getGroups(userId)]);
+  const [user] = await Promise.all([currentUser(), ensureUser()]);
+  const groups = await getGroups(userId);
 
   const owed = groups.reduce(
     (sum, g) => sum + Math.max(g.yourBalanceCents, 0),
@@ -51,6 +53,10 @@ export default async function DashboardPage() {
         <h2 className="text-xl font-medium">Your groups</h2>
         <CreateGroupForm />
       </div>
+
+      {groups.length === 0 ? (
+        <p className="mt-4 text-muted-foreground">No groups yet.</p>
+      ) : null}
 
       <ul className="mt-4 grid gap-4 md:grid-cols-2">
         {groups.map((g) => (

@@ -1,20 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { addMember } from "@/app/actions/members";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useMockAction } from "@/components/use-mock-action";
 
-export function AddMemberForm() {
+export function AddMemberForm({ groupId }: { groupId: string }) {
   const [email, setEmail] = useState("");
-  const { pending, run } = useMockAction();
+  const [pending, startTransition] = useTransition();
 
   return (
     <form
       className="flex items-center gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        run(() => setEmail(""));
+        startTransition(async () => {
+          const result = await addMember(groupId, email);
+          if (result.error) {
+            toast.error(result.error);
+            return;
+          }
+          toast.success("Member added");
+          setEmail("");
+        });
       }}
     >
       <Input

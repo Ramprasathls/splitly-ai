@@ -8,19 +8,19 @@ import { ExpenseModal } from "@/components/expense-modal";
 import { MemberAvatars } from "@/components/member-avatars";
 import { MembersList } from "@/components/members-list";
 import { Separator } from "@/components/ui/separator";
-import { MOCK_CURRENT_USER_ID } from "@/lib/mock-data";
+import { ensureUser } from "@/lib/ensure-user";
 import { getGroupDetail } from "@/lib/queries";
 
 export default async function GroupPage({
   params,
 }: PageProps<"/groups/[groupId]">) {
   const { userId } = await auth.protect();
+  await ensureUser();
   const { groupId } = await params;
   const group = await getGroupDetail(userId, groupId);
   if (!group) notFound();
 
-  // Phase 3 replaces this with the Clerk userId (members are real rows then).
-  const currentUserId = MOCK_CURRENT_USER_ID;
+  const currentUserId = userId;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-10">
@@ -34,7 +34,11 @@ export default async function GroupPage({
         </div>
         <div className="flex items-center gap-3">
           <CurrencySelect />
-          <ExpenseModal members={group.members} currentUserId={currentUserId} />
+          <ExpenseModal
+            groupId={group.id}
+            members={group.members}
+            currentUserId={currentUserId}
+          />
         </div>
       </div>
 
@@ -42,6 +46,7 @@ export default async function GroupPage({
         <section>
           <h2 className="mb-3 text-xl font-medium">Activity</h2>
           <ActivityList
+            groupId={group.id}
             expenses={group.expenses}
             settlements={group.settlements}
             members={group.members}
@@ -52,13 +57,18 @@ export default async function GroupPage({
         <aside>
           <h2 className="mb-3 text-xl font-medium">Who owes whom</h2>
           <DebtsCard
+            groupId={group.id}
             debts={group.simplifiedDebts}
             members={group.members}
             currentUserId={currentUserId}
           />
           <Separator className="my-8" />
           <h2 className="mb-3 text-xl font-medium">Members</h2>
-          <MembersList members={group.members} currentUserId={currentUserId} />
+          <MembersList
+            groupId={group.id}
+            members={group.members}
+            currentUserId={currentUserId}
+          />
         </aside>
       </div>
     </main>

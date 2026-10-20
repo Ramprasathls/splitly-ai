@@ -1,13 +1,16 @@
+import { settleUp } from "@/app/actions/settlements";
 import { SettleUpButton } from "@/components/settle-up-button";
 import { formatCents } from "@/lib/format";
 import { displayName, memberById } from "@/lib/members";
 import type { Member, SimplifiedDebt } from "@/lib/types";
 
 export function DebtsCard({
+  groupId,
   debts,
   members,
   currentUserId,
 }: {
+  groupId: string;
   debts: SimplifiedDebt[];
   members: Member[];
   currentUserId: string;
@@ -44,7 +47,17 @@ export function DebtsCard({
             <span className={`font-medium ${amountTone}`}>
               {formatCents(d.amountCents)}
             </span>
-            {involvesYou ? <SettleUpButton /> : null}
+            {involvesYou ? (
+              <SettleUpButton
+                action={settleUp.bind(
+                  null,
+                  groupId,
+                  d.fromUserId,
+                  d.toUserId,
+                  d.amountCents,
+                )}
+              />
+            ) : null}
           </li>
         );
       })}

@@ -1,5 +1,5 @@
 // Shared view-model types. Shaped to match the Prisma models that arrive in
-// Phase 3, so swapping mock data for real queries is a drop-in change.
+// Phase 3, so the pages stay unchanged when the data source changes.
 
 export type Member = {
   id: string; // Clerk userId

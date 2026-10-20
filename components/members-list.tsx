@@ -4,9 +4,11 @@ import { displayName } from "@/lib/members";
 import type { Member } from "@/lib/types";
 
 export function MembersList({
+  groupId,
   members,
   currentUserId,
 }: {
+  groupId: string;
   members: Member[];
   currentUserId: string;
 }) {
@@ -23,7 +25,7 @@ export function MembersList({
           </li>
         ))}
       </ul>
-      <AddMemberForm />
+      <AddMemberForm groupId={groupId} />
     </div>
   );
 }

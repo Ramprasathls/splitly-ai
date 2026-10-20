@@ -1,0 +1,97 @@
+// Money is always integer cents. User.id IS the Clerk userId — no internal id.
+// Debts are derived at read time and never stored (no Debt table).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id       String  @id // Clerk userId
+  email    String  @unique
+  name     String
+  imageUrl String?
+
+  memberships         GroupMember[]
+  paidExpenses        Expense[]
+  splits              ExpenseSplit[]
+  settlementsSent     Settlement[]   @relation("SettlementFrom")
+  settlementsReceived Settlement[]   @relation("SettlementTo")
+}
+
+model Group {
+  id   String @id @default(cuid())
+  name String
+
+  members     GroupMember[]
+  expenses    Expense[]
+  settlements Settlement[]
+
+  createdAt DateTime @default(now())
+}
+
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  userId   String
+  role     String   @default("member") // "admin" | "member"
+  joinedAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+model Expense {
+  id          String @id @default(cuid())
+  groupId     String
+  paidById    String
+  description String
+
+  // Always USD cents, converted server-side once at entry.
+  amountCents         Int
+  // The amount as entered. Equals amountCents when originalCurrency is USD.
+  originalAmountCents Int
+  originalCurrency    String @default("USD")
+
+  createdAt DateTime @default(now())
+
+  group  Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  paidBy User           @relation(fields: [paidById], references: [id])
+  splits ExpenseSplit[]
+
+  @@index([groupId, createdAt])
+}
+
+model ExpenseSplit {
+  id          String @id @default(cuid())
+  expenseId   String
+  userId      String
+  amountCents Int // this member's share; splits sum to the expense amountCents
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([expenseId, userId])
+}
+
+model Settlement {
+  id          String   @id @default(cuid())
+  groupId     String
+  fromUserId  String // who paid
+  toUserId    String // who received
+  amountCents Int
+  createdAt   DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  from  User  @relation("SettlementFrom", fields: [fromUserId], references: [id])
+  to    User  @relation("SettlementTo", fields: [toUserId], references: [id])
+
+  @@index([groupId, createdAt])
+}

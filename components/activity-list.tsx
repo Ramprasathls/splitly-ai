@@ -1,4 +1,6 @@
 import { HandCoinsIcon } from "lucide-react";
+import { deleteExpense } from "@/app/actions/expenses";
+import { deleteSettlement } from "@/app/actions/settlements";
 import { DeleteRowButton } from "@/components/delete-row-button";
 import { ExpenseModal } from "@/components/expense-modal";
 import { formatCents, formatShortDate } from "@/lib/format";
@@ -11,11 +13,13 @@ type Item =
 
 // Every record that feeds the balance math appears here and can be removed.
 export function ActivityList({
+  groupId,
   expenses,
   settlements,
   members,
   currentUserId,
 }: {
+  groupId: string;
   expenses: Expense[];
   settlements: Settlement[];
   members: Member[];
@@ -59,7 +63,10 @@ export function ActivityList({
                   {formatCents(s.amountCents)} · {formatShortDate(s.createdAt)}
                 </p>
               </div>
-              <DeleteRowButton label="Delete payment" />
+              <DeleteRowButton
+                label="Delete payment"
+                action={deleteSettlement.bind(null, groupId, s.id)}
+              />
             </li>
           );
         }
@@ -83,11 +90,15 @@ export function ActivityList({
               your share {formatCents(yourShare)}
             </span>
             <ExpenseModal
+              groupId={groupId}
               members={members}
               currentUserId={currentUserId}
               expense={e}
             />
-            <DeleteRowButton label={`Delete ${e.description}`} />
+            <DeleteRowButton
+              label={`Delete ${e.description}`}
+              action={deleteExpense.bind(null, groupId, e.id)}
+            />
           </li>
         );
       })}
