@@ -1,27 +1,23 @@
 import "server-only";
 import { currentUser } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
+import { syncUser } from "@/lib/user-sync";
 
 /**
  * Upserts the signed-in Clerk user into our User table (id = Clerk userId).
- * Dev fallback — the Clerk webhook (Phase 5) is the production sync path.
+ * Dev fallback — the Clerk webhook (/api/webhooks/clerk) is the production
+ * sync path; both go through syncUser.
  */
 export async function ensureUser() {
   const user = await currentUser();
   if (!user) return null;
 
-  const email = (
-    user.primaryEmailAddress?.emailAddress ??
-    user.emailAddresses[0]?.emailAddress ??
-    `${user.id}@unknown.invalid`
-  ).toLowerCase();
-  const name =
-    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
-    email.split("@")[0];
-
-  return db.user.upsert({
-    where: { id: user.id },
-    create: { id: user.id, email, name, imageUrl: user.imageUrl },
-    update: { email, name, imageUrl: user.imageUrl },
+  return syncUser({
+    id: user.id,
+    email:
+      user.primaryEmailAddress?.emailAddress ??
+      user.emailAddresses[0]?.emailAddress,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    imageUrl: user.imageUrl,
   });
 }

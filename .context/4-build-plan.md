@@ -56,8 +56,8 @@ with pictures, not longer prompts:
 
 ## 05 Webhook User Sync
 
-- [ ] `app/api/webhooks/clerk/route.ts` with `verifyWebhook`
-- [ ] Idempotent upserts for user.created/updated; deleteMany for deleted
+- [x] `app/api/webhooks/clerk/route.ts` with `verifyWebhook`
+- [x] Idempotent upserts for user.created/updated; deleteMany for deleted
 - [ ] Register the endpoint + `CLERK_WEBHOOK_SIGNING_SECRET` in production
 
 ## 06 Flexible Splits
