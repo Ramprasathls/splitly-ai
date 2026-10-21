@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { netBalances } from "@/lib/balances";
 import { db } from "@/lib/db";
+import { simplifyDebts } from "@/lib/simplify-debts";
 import type { GroupDetail, GroupSummary, Member } from "@/lib/types";
 
 // Reads live here, never in "use server" files (those become public endpoints).
@@ -73,7 +74,8 @@ export async function getGroupDetail(
       amountCents: s.amountCents,
       createdAt: s.createdAt,
     })),
-    // Phase 4 (debt simplification) fills this from the net balances.
-    simplifiedDebts: [],
+    simplifiedDebts: simplifyDebts(
+      netBalances(group.expenses, group.settlements),
+    ),
   };
 }
