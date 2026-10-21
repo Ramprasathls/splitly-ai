@@ -25,8 +25,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ENTRY_CURRENCIES } from "@/lib/currencies";
+import { formatCents } from "@/lib/format";
 import { displayName } from "@/lib/members";
 import { parseAmountToCents } from "@/lib/money";
+import {
+  computeSplits,
+  defaultSplitValues,
+  formatBp,
+  formatCentsInput,
+  inferSplitMode,
+  parsePercentToBp,
+  type SplitInput,
+  type SplitMode,
+} from "@/lib/splits";
 import type { Expense, Member } from "@/lib/types";
 
 type FormState = {
@@ -34,11 +45,19 @@ type FormState = {
   amount: string;
   currency: string;
   paidById: string;
+  mode: SplitMode;
+  /** Checked members. */
   included: string[];
+  /** Per-member text for the active mode: a percentage or an amount. */
+  values: Record<string, string>;
 };
 
 const CURRENCY_ITEMS = ENTRY_CURRENCIES.map((c) => ({ value: c, label: c }));
-const SPLIT_ITEMS = [{ value: "equally", label: "equally" }];
+const SPLIT_ITEMS: { value: SplitMode; label: string }[] = [
+  { value: "equal", label: "equally" },
+  { value: "percent", label: "by percentages" },
+  { value: "exact", label: "by exact amounts" },
+];
 
 // Pill-style selects used inside the "Paid by … and split …" sentence.
 const PILL_TRIGGER =
@@ -50,12 +69,24 @@ function initialState(
   expense?: Expense,
 ): FormState {
   if (expense) {
+    // Equal-ish splits reopen as "equally"; anything else as exact amounts.
+    const mode = inferSplitMode(expense.splits);
     return {
       description: expense.description,
-      amount: (expense.originalAmountCents / 100).toFixed(2),
+      amount: formatCentsInput(expense.originalAmountCents),
       currency: expense.originalCurrency,
       paidById: expense.paidById,
+      mode,
       included: expense.splits.map((s) => s.userId),
+      values:
+        mode === "exact"
+          ? Object.fromEntries(
+              expense.splits.map((s) => [
+                s.userId,
+                formatCentsInput(s.amountCents),
+              ]),
+            )
+          : {},
     };
   }
   return {
@@ -63,16 +94,10 @@ function initialState(
     amount: "",
     currency: "USD",
     paidById: currentUserId,
+    mode: "equal",
     included: members.map((m) => m.id),
+    values: {},
   };
-}
-
-function isValid(form: FormState): boolean {
-  return (
-    form.description.trim().length > 0 &&
-    parseAmountToCents(form.amount) !== null &&
-    form.included.length > 0
-  );
 }
 
 // One component serves add AND edit: passing `expense` switches to edit mode.
@@ -98,6 +123,56 @@ export function ExpenseModal({
     label: displayName(m, currentUserId),
   }));
 
+  // Members in group order, so the same inputs always produce the same shares.
+  const included = members
+    .filter((m) => form.included.includes(m.id))
+    .map((m) => m.id);
+  const amountCents = parseAmountToCents(form.amount);
+
+  const splitInput: SplitInput =
+    form.mode === "equal"
+      ? { mode: "equal", userIds: included }
+      : {
+          mode: form.mode,
+          entries: included.map((userId) => ({
+            userId,
+            value: form.values[userId] ?? "",
+          })),
+        };
+
+  // The same function the server runs; the server stays the authority.
+  const result =
+    amountCents !== null && included.length > 0
+      ? computeSplits(amountCents, splitInput)
+      : null;
+  const shares = result && Array.isArray(result) ? result : null;
+  const shareOf = (id: string) =>
+    shares?.find((s) => s.userId === id)?.amountCents;
+
+  // Actionable validation only — no explainer copy.
+  let hint: string | null = null;
+  if (form.mode === "percent") {
+    const sum = included.reduce(
+      (s, id) => s + (parsePercentToBp(form.values[id] ?? "") ?? 0),
+      0,
+    );
+    if (sum !== 10_000) hint = `Percentages add up to ${formatBp(sum)}%`;
+  } else if (form.mode === "exact" && amountCents !== null) {
+    const assigned = included.reduce(
+      (s, id) => s + (parseAmountToCents(form.values[id] ?? "") ?? 0),
+      0,
+    );
+    const left = amountCents - assigned;
+    if (left > 0) hint = `${formatCents(left, form.currency)} left to assign`;
+    if (left < 0) hint = `${formatCents(-left, form.currency)} over`;
+  }
+  if (!hint && result && "error" in result && amountCents !== null) {
+    hint = result.error;
+  }
+
+  const canSave =
+    !pending && form.description.trim().length > 0 && shares !== null;
+
   function patch(next: Partial<FormState>) {
     setForm((prev) => ({ ...prev, ...next }));
   }
@@ -109,11 +184,19 @@ export function ExpenseModal({
     setOpen(next);
   }
 
+  // Switching modes or who's included restarts from a valid equal split.
+  function changeMode(mode: SplitMode) {
+    patch({ mode, values: defaultSplitValues(mode, included, amountCents) });
+  }
+
   function toggleMember(id: string, checked: boolean) {
+    const next = checked
+      ? [...form.included, id]
+      : form.included.filter((x) => x !== id);
+    const ordered = members.filter((m) => next.includes(m.id)).map((m) => m.id);
     patch({
-      included: checked
-        ? [...form.included, id]
-        : form.included.filter((x) => x !== id),
+      included: next,
+      values: defaultSplitValues(form.mode, ordered, amountCents),
     });
   }
 
@@ -123,7 +206,7 @@ export function ExpenseModal({
       amount: form.amount,
       currency: form.currency,
       paidById: form.paidById,
-      memberIds: form.included,
+      split: splitInput,
     };
     startTransition(async () => {
       const result = expense
@@ -231,7 +314,11 @@ export function ExpenseModal({
               </SelectContent>
             </Select>
             <span>and split</span>
-            <Select items={SPLIT_ITEMS} defaultValue="equally">
+            <Select
+              items={SPLIT_ITEMS}
+              value={form.mode}
+              onValueChange={(v) => v && changeMode(v)}
+            >
               <SelectTrigger aria-label="Split method" className={PILL_TRIGGER}>
                 <SelectValue />
               </SelectTrigger>
@@ -245,20 +332,58 @@ export function ExpenseModal({
             </Select>
           </div>
 
-          <ul className="divide-y rounded-lg border">
-            {members.map((m) => (
-              <li key={m.id}>
-                <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5">
-                  <Checkbox
-                    checked={form.included.includes(m.id)}
-                    onCheckedChange={(checked) => toggleMember(m.id, checked)}
-                  />
-                  <MemberAvatar member={m} className="size-7" />
-                  <span>{displayName(m, currentUserId)}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
+          <div className="grid gap-2">
+            <ul className="divide-y rounded-lg border">
+              {members.map((m) => {
+                const name = displayName(m, currentUserId);
+                const checked = form.included.includes(m.id);
+                const share = shareOf(m.id);
+                return (
+                  <li key={m.id} className="flex items-center gap-3 px-3 py-2">
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-0.5">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(c) => toggleMember(m.id, c)}
+                      />
+                      <MemberAvatar member={m} className="size-7" />
+                      <span className="truncate">{name}</span>
+                    </label>
+                    {checked && form.mode === "equal" && share !== undefined ? (
+                      <span className="text-sm text-muted-foreground">
+                        {formatCents(share, form.currency)}
+                      </span>
+                    ) : null}
+                    {checked && form.mode !== "equal" ? (
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          inputMode="decimal"
+                          aria-label={`${name} ${form.mode === "percent" ? "percentage" : "amount"}`}
+                          value={form.values[m.id] ?? ""}
+                          onChange={(e) =>
+                            patch({
+                              values: {
+                                ...form.values,
+                                [m.id]: e.target.value,
+                              },
+                            })
+                          }
+                          className="h-8 w-24 text-right"
+                        />
+                        <span className="w-8 text-sm text-muted-foreground">
+                          {form.mode === "percent" ? "%" : form.currency}
+                        </span>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+            {hint ? (
+              <p className="text-sm text-destructive" role="status">
+                {hint}
+              </p>
+            ) : null}
+          </div>
 
           <DialogFooter>
             <Button
@@ -268,7 +393,7 @@ export function ExpenseModal({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending || !isValid(form)}>
+            <Button type="submit" disabled={!canSave}>
               {pending ? "Saving…" : expense ? "Save changes" : "Save expense"}
             </Button>
           </DialogFooter>
