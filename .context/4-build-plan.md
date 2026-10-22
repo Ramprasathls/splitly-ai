@@ -81,10 +81,10 @@ with pictures, not longer prompts:
 
 ## 08 AI Quick-Add
 
-- [ ] ✨ box in the expense modal: free text → `claude-sonnet-4-5` via
-      `messages.parse` + `zodOutputFormat` → {description, amount, currency}
-- [ ] Currency constrained to the supported enum; AI never does money math
-- [ ] Graceful degradation without `ANTHROPIC_API_KEY`
+- [x] ✨ box in the expense modal: free text → `gemini-3.5-flash-lite` via
+      `responseJsonSchema` (from the zod schema) → {description, amount, currency}
+- [x] Currency constrained to the supported enum; AI never does money math
+- [x] Graceful degradation without `GEMINI_API_KEY`
 
 ## 09 Design System & Theming
 

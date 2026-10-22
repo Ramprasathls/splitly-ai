@@ -16,8 +16,9 @@
   `?currency=`. Original currency + amount stored alongside.
 - **Authentication:** Clerk (`@clerk/nextjs`). Server code imports from
   `@clerk/nextjs/server`; client code from `@clerk/nextjs`.
-- **AI:** Anthropic SDK, model `claude-sonnet-4-5`, structured outputs via
-  `client.messages.parse` + `zodOutputFormat`. Requires `ANTHROPIC_API_KEY`;
+- **AI:** Google Gemini via `@google/genai`, model `gemini-3.5-flash-lite`,
+  structured outputs via `responseMimeType` + `responseJsonSchema` (built from
+  the zod schema in `lib/quick-add.ts`). Requires `GEMINI_API_KEY`;
   every AI action degrades gracefully without it.
 
 ## Invariants
@@ -59,7 +60,7 @@ Rules the AI agent must never violate:
   appear in the UI — render names (Base UI selects need an `items` map).
 - AI does language understanding only; money math and FX conversion stay
   deterministic in server code. AI failures degrade to manual entry.
-- Secrets (`CLERK_SECRET_KEY`, `ANTHROPIC_API_KEY`, webhook secret) stay
+- Secrets (`CLERK_SECRET_KEY`, `GEMINI_API_KEY`, webhook secret) stay
   server-side — never `NEXT_PUBLIC_`, never passed to client components.
 - No hardcoded hex values or raw palette classes in components — theme
   tokens from `app/globals.css` only. Exception: emerald = money owed,

@@ -41,6 +41,7 @@ export default async function GroupPage({
             basePath={`/groups/${group.id}`}
           />
           <ExpenseModal
+            aiEnabled={Boolean(process.env.GEMINI_API_KEY)}
             groupId={group.id}
             members={group.members}
             currentUserId={currentUserId}

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { PencilIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
+import { parseExpenseText } from "@/app/actions/ai";
 import { addExpense, updateExpense } from "@/app/actions/expenses";
 import { MemberAvatar } from "@/components/member-avatars";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import { CURRENCIES, currencyDecimals } from "@/lib/currencies";
 import { reconstructShares } from "@/lib/fx";
 import { formatCents } from "@/lib/format";
 import { displayName } from "@/lib/members";
+import { MAX_QUICK_ADD_CHARS } from "@/lib/quick-add-limits";
 import { parseAmountToCents } from "@/lib/money";
 import {
   computeSplits,
@@ -115,17 +117,22 @@ export function ExpenseModal({
   members,
   currentUserId,
   expense,
+  aiEnabled = false,
 }: {
   groupId: string;
   members: Member[];
   currentUserId: string;
   expense?: Expense;
+  /** Server-decided: false when no GEMINI_API_KEY, so the box is hidden. */
+  aiEnabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(() =>
     initialState(members, currentUserId, expense),
   );
   const [pending, startTransition] = useTransition();
+  const [quickText, setQuickText] = useState("");
+  const [parsing, startParsing] = useTransition();
 
   const memberItems = members.map((m) => ({
     value: m.id,
@@ -222,6 +229,39 @@ export function ExpenseModal({
     });
   }
 
+  // AI quick-add: fills description / amount / currency for review. The model
+  // never saves anything and never does money math; the server re-validates its
+  // output, and Save runs the normal validation path.
+  function quickAdd() {
+    if (!quickText.trim()) return;
+    startParsing(async () => {
+      const result = await parseExpenseText(groupId, quickText, form.currency);
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      const nextDecimals = currencyDecimals(result.currency);
+      patch({
+        description: result.description,
+        amount: result.amount,
+        currency: result.currency,
+        // Only exact amounts depend on the total; leave other modes' inputs be.
+        ...(form.mode === "exact"
+          ? {
+              values: defaultSplitValues(
+                "exact",
+                included,
+                parseAmountToCents(result.amount, nextDecimals),
+                nextDecimals,
+              ),
+            }
+          : {}),
+      });
+      setQuickText("");
+      toast.success("Filled in from your text — check the details");
+    });
+  }
+
   function toggleMember(id: string, checked: boolean) {
     const next = checked
       ? [...form.included, id]
@@ -289,6 +329,36 @@ export function ExpenseModal({
             save();
           }}
         >
+          {aiEnabled && !expense ? (
+            <div className="grid gap-2 rounded-lg bg-primary/5 p-3">
+              <Label htmlFor="quick-add">✨ Quick add with AI</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="quick-add"
+                  value={quickText}
+                  maxLength={MAX_QUICK_ADD_CHARS}
+                  onChange={(e) => setQuickText(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Enter parses; it must not submit the whole expense form.
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      quickAdd();
+                    }
+                  }}
+                  placeholder='e.g. "dinner in Tokyo 4500 yen"'
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={parsing || !quickText.trim()}
+                  onClick={quickAdd}
+                >
+                  {parsing ? "Parsing…" : "Parse"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid gap-2">
             <Label htmlFor="expense-description">Description</Label>
             <Input

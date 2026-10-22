@@ -50,7 +50,7 @@ accepted at entry and any currency can be chosen for display.
 - Header: group name, member avatars, your balance pill
 - Display-currency select + "Add expense" button
 - **Expense modal (one component serves add AND edit):**
-  - ✨ AI quick-add: free text ("dinner in Tokyo 4500 yen") → Claude fills
+  - ✨ AI quick-add: free text ("dinner in Tokyo 4500 yen") → Gemini fills
     description, amount, currency
   - Description, amount + currency select (20 ECB currencies)
   - Sentence: "Paid by [member] and split [equally | by percentages |
