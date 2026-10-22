@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { parseExpenseInput, type ExpenseInput } from "@/lib/expenses";
 import { requireMembership } from "@/lib/group-access";
 import { getRates } from "@/lib/rates";
+import { isId } from "@/lib/validate";
 
 // Rates are only needed for non-USD entries (and only for known currencies).
 async function ratesFor(input: ExpenseInput) {
@@ -59,6 +60,8 @@ export async function updateExpense(
   const access = await requireMembership(groupId);
   if ("error" in access) return access;
 
+  if (!isId(expenseId)) return { error: "Expense not found" };
+
   const parsed = parseExpenseInput(
     input,
     access.memberIds,
@@ -89,6 +92,8 @@ export async function deleteExpense(
 
   const access = await requireMembership(groupId);
   if ("error" in access) return access;
+
+  if (!isId(expenseId)) return { error: "Expense not found" };
 
   // Scoped by groupId; settlements are separate facts and are never touched.
   const { count } = await db.expense.deleteMany({

@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   experimental: {
     agentFeedback: true,
   },
+  // Production builds drop console.log/info/debug; console.error is kept.
+  compiler: {
+    removeConsole: { exclude: ["error"] },
+  },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

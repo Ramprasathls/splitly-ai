@@ -1,6 +1,7 @@
 import "server-only";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { isId } from "@/lib/validate";
 
 export type Access = { userId: string; memberIds: string[] };
 
@@ -13,8 +14,7 @@ export async function requireMembership(
 ): Promise<Access | { error: string }> {
   const { userId } = await auth();
   if (!userId) return { error: "Sign in to continue" };
-  if (typeof groupId !== "string" || !groupId)
-    return { error: "Group not found" };
+  if (!isId(groupId)) return { error: "Group not found" };
 
   const members = await db.groupMember.findMany({
     where: { groupId },

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getGroupDebts } from "@/lib/debts";
 import { requireMembership } from "@/lib/group-access";
+import { isId } from "@/lib/validate";
 
 function revalidateGroup(groupId: string) {
   revalidatePath(`/groups/${groupId}`);
@@ -25,8 +26,8 @@ export async function settleUp(
   if ("error" in access) return access;
 
   if (
-    typeof fromUserId !== "string" ||
-    typeof toUserId !== "string" ||
+    !isId(fromUserId) ||
+    !isId(toUserId) ||
     fromUserId === toUserId ||
     !access.memberIds.includes(fromUserId) ||
     !access.memberIds.includes(toUserId)
@@ -74,6 +75,8 @@ export async function deleteSettlement(
 
   const access = await requireMembership(groupId);
   if ("error" in access) return access;
+
+  if (!isId(settlementId)) return { error: "Payment not found" };
 
   const { count } = await db.settlement.deleteMany({
     where: { id: settlementId, groupId },

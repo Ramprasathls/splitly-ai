@@ -1,5 +1,5 @@
 import "server-only";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { CURRENCIES, parseCurrency } from "@/lib/currencies";
 import type { Display } from "@/lib/format";
 import type { Rates } from "@/lib/fx";
@@ -11,6 +11,7 @@ const SYMBOLS = CURRENCIES.filter((c) => c !== "USD").join(",");
 async function fetchRates(): Promise<Rates> {
   "use cache";
   cacheLife({ stale: 300, revalidate: 3600, expire: 86400 });
+  cacheTag("exchange-rates"); // lets us refresh just the rates with revalidateTag
 
   const res = await fetch(
     `https://api.frankfurter.dev/v1/latest?base=USD&symbols=${SYMBOLS}`,
