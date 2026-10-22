@@ -3,6 +3,7 @@ import { deleteExpense } from "@/app/actions/expenses";
 import { deleteSettlement } from "@/app/actions/settlements";
 import { DeleteRowButton } from "@/components/delete-row-button";
 import { ExpenseModal } from "@/components/expense-modal";
+import { NewSparkle } from "@/components/new-sparkle";
 import {
   formatCents,
   formatShortDate,
@@ -87,7 +88,10 @@ export function ActivityList({
         return (
           <li key={e.id} className="flex items-center gap-3 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{e.description}</p>
+              <p className="flex items-center gap-1.5 font-medium">
+                <span className="truncate">{e.description}</span>
+                <NewSparkle createdAt={e.createdAt.toISOString()} />
+              </p>
               <p className="text-sm text-muted-foreground">
                 {name(e.paidById)} paid{" "}
                 {formatCents(e.originalAmountCents, e.originalCurrency)}
