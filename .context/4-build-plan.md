@@ -88,12 +88,13 @@ with pictures, not longer prompts:
 
 ## 09 Design System & Theming
 
-- [ ] shadcn/ui migration (base-nova / Base UI): buttons, cards, dialog,
+- [x] shadcn/ui migration (base-nova / Base UI): buttons, cards, dialog,
       selects, checkbox, badges, avatars, sonner
-- [ ] Clerk modals themed via `@clerk/ui` shadcn theme
-- [ ] tweakcn theme applied; fonts loaded via `next/font` and wired into
-      `@theme inline`
-- [ ] 💸 favicon (`app/icon.svg`)
+- [x] Clerk modals themed via `@clerk/ui` shadcn theme
+- [x] tweakcn "claymorphism" theme applied (`npx shadcn@latest add
+      https://tweakcn.com/r/themes/claymorphism.json`); its fonts (Plus Jakarta
+      Sans, Roboto Mono) loaded via `next/font` and wired into `@theme inline`
+- [x] 💸 favicon (`app/icon.svg`)
 
 ## 10 Landing Page
 

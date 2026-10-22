@@ -4,8 +4,10 @@
   Next 16 uses `proxy.ts` (NOT `middleware.ts`) for request interception.
 - **Styling:** Tailwind CSS v4 + **shadcn/ui** (base-nova style, Base UI
   primitives) from `components/ui/` via `npx shadcn add <component>`.
-  Theme: custom tweakcn theme (coral primary, teal secondary/accent,
-  Poppins / JetBrains Mono loaded via `next/font`).
+  Theme: tweakcn "claymorphism" (indigo primary, warm-gray surfaces, 1.25rem
+  radius, clay shadows), installed with `npx shadcn@latest add
+  https://tweakcn.com/r/themes/claymorphism.json`. Plus Jakarta Sans / Roboto
+  Mono loaded via `next/font`.
 - **Clerk appearance:** Clerk components use the shadcn theme from
   `@clerk/ui/themes` so modals match the design system.
 - **Database:** Prisma ORM. SQLite locally (zero-setup for dev); switching
