@@ -4,6 +4,7 @@
 // integer (BigInt) math so shares always sum exactly.
 // Relative .ts imports keep this file runnable by `npm test`.
 
+import { splitEqually } from "./money.ts";
 import type { Share } from "./splits.ts";
 
 export type Rates = Record<string, number>;
@@ -91,4 +92,36 @@ export function reconstructShares(
     userId: s.userId,
     amountCents: parts[i] * unit,
   }));
+}
+
+/**
+ * Was this expense an equal split in the entered currency? Replays the entry
+ * pipeline (split the entered total equally, convert once) and compares with
+ * what was stored. That is exact; judging the rebuilt shares is not: when one
+ * US cent spans many entered units (THB, JPY, INR...) the rebuilt shares drift
+ * from what was typed, and an equal split looked "uneven" about 44% of the time.
+ * Matches per member first, then as a multiset in case rows came back reordered.
+ */
+export function wasEqualSplit(
+  originalTotalCents: number,
+  usdShares: Share[],
+  decimals: 0 | 2,
+): boolean {
+  if (usdShares.length === 0) return false;
+  const unit = decimals === 0 ? 100 : 1;
+  const usdTotal = usdShares.reduce((sum, s) => sum + s.amountCents, 0);
+
+  const entered = splitEqually(
+    Math.round(originalTotalCents / unit),
+    usdShares.map((s) => s.userId),
+  ).map((s) => ({ userId: s.userId, amountCents: s.amountCents * unit }));
+  const replay = convertShares(entered, usdTotal);
+
+  if (replay.every((s, i) => s.amountCents === usdShares[i].amountCents)) {
+    return true;
+  }
+  const byAmount = (a: number, b: number) => a - b;
+  const a = replay.map((s) => s.amountCents).sort(byAmount);
+  const b = usdShares.map((s) => s.amountCents).sort(byAmount);
+  return a.every((v, i) => v === b[i]);
 }

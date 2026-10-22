@@ -57,7 +57,8 @@ with pictures, not longer prompts:
 ## 05 Webhook User Sync
 
 - [x] `app/api/webhooks/clerk/route.ts` with `verifyWebhook`
-- [x] Idempotent upserts for user.created/updated; deleteMany for deleted
+- [x] Idempotent upserts for user.created/updated; user.deleted deletes users
+      with no ledger rows and anonymizes the rest (FKs have no cascade)
 - [ ] Register the endpoint + `CLERK_WEBHOOK_SIGNING_SECRET` in production
 
 ## 06 Flexible Splits
@@ -117,18 +118,20 @@ with pictures, not longer prompts:
 
 ## 12 Edit Expense
 
-- [ ] Pencil icon per expense row opens the same modal as Add, pre-filled —
+- [x] Pencil icon per expense row opens the same modal as Add, pre-filled —
       ONE component (`components/expense-modal.tsx`), an `expense` prop
       switches add/edit; no separate edit form
-- [ ] Pre-fill reconstructs entered-currency shares from stored USD splits
+- [x] Pre-fill reconstructs entered-currency shares from stored USD splits
       via the same proportional exact-sum math (`convertSplits` in reverse);
-      equal-ish splits reopen in "equally" mode, others as exact amounts
-- [ ] `updateExpense` runs the identical validation + conversion as
+      equal-ish splits reopen in "equally" mode, others as exact amounts.
+      "Equally" is decided by replaying the entry pipeline (`wasEqualSplit`),
+      not by judging the rebuilt shares, which drift for high-rate currencies
+- [x] `updateExpense` runs the identical validation + conversion as
       `addExpense` (shared helper) — an edit is a re-entry, re-converted at
       today's rate
-- [ ] Splits rewritten wholesale in one nested update (`deleteMany` +
+- [x] Splits rewritten wholesale in one nested update (`deleteMany` +
       `create`) so total and shares can't drift; update scoped by `groupId`
-- [ ] Form state populated on OPEN (not reset on close) so a reopen after
+- [x] Form state populated on OPEN (not reset on close) so a reopen after
       save shows the saved values
 
 ## 13 Ledger Visibility
@@ -137,15 +140,15 @@ Motivation: edit/delete an expense after a settle-up and "Who owes whom"
 looks wrong, because the recorded payment silently stays in the math but
 is shown nowhere.
 
-- [ ] "Expenses" section becomes **Activity**: expenses AND settlements
+- [x] "Expenses" section becomes **Activity**: expenses AND settlements
       interleaved, newest first (payment rows: HandCoins icon, "X paid Y",
       amount, date)
-- [ ] Settlements deletable like expenses (`deleteSettlement`,
+- [x] Settlements deletable like expenses (`deleteSettlement`,
       group-scoped) — a bad settle-up can be removed in the UI
-- [ ] Delete button generalized to `DeleteRowButton`: takes a **bound
+- [x] Delete button generalized to `DeleteRowButton`: takes a **bound
       server action** (`deleteExpense.bind(null, groupId, id)`) as a prop, so
       one client component serves every deletable row type
-- [ ] Invariant: every record that feeds a derived number is visible and
+- [x] Invariant: every record that feeds a derived number is visible and
       removable on screen — balances must be auditable from the UI
 
 ## 14 Stretch Goals

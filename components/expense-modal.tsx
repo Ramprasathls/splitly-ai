@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CURRENCIES, currencyDecimals } from "@/lib/currencies";
-import { reconstructShares } from "@/lib/fx";
+import { reconstructShares, wasEqualSplit } from "@/lib/fx";
 import { formatCents } from "@/lib/format";
 import { displayName } from "@/lib/members";
 import { MAX_QUICK_ADD_CHARS } from "@/lib/quick-add-limits";
@@ -81,7 +81,13 @@ function initialState(
       expense.splits,
       decimals,
     );
-    const mode = inferSplitMode(entered);
+    // Replay the entry pipeline to decide "equally": exact, where judging the
+    // rebuilt shares drifts for high-rate currencies (THB, JPY, INR, ...).
+    const mode =
+      wasEqualSplit(expense.originalAmountCents, expense.splits, decimals) ||
+      inferSplitMode(entered) === "equal"
+        ? "equal"
+        : "exact";
     return {
       description: expense.description,
       amount: formatCentsInput(expense.originalAmountCents, decimals),

@@ -6,7 +6,9 @@ import {
   fromUsdCents,
   reconstructShares,
   toUsdCents,
+  wasEqualSplit,
 } from "./fx.ts";
+import { splitEqually } from "./money.ts";
 
 describe("rate conversion", () => {
   it("toUsdCents / fromUsdCents round once", () => {
@@ -138,6 +140,89 @@ describe("fuzz: conversion always reconciles", () => {
         assert.ok(Math.abs(p - (total * weights[i]) / sumW) < 1 + 1e-6 * total);
         assert.ok(Number.isInteger(p) && p >= 0);
       });
+    });
+  }
+});
+
+describe("wasEqualSplit (edit-form mode detection)", () => {
+  // The cases the old "judge the rebuilt shares" approach got wrong (THB, INR).
+  it("recognises equal splits in high-rate currencies", () => {
+    const cases: [number, number[], 0 | 2][] = [
+      [1216566, [7247, 7247, 7247, 7247, 7246], 2], // THB, 5 people
+      [467846, [4645, 4645, 4644], 2], // THB, 3 people
+      [1604219, [4821, 4820, 4820, 4820], 2], // INR, 4 people
+    ];
+    for (const [orig, usd, dec] of cases) {
+      const shares = usd.map((amountCents, i) => ({
+        userId: `u${i}`,
+        amountCents,
+      }));
+      assert.equal(wasEqualSplit(orig, shares, dec), true, `${orig}`);
+    }
+  });
+  it("recognises equal USD splits and tolerates reordered rows", () => {
+    const shares = [
+      { userId: "a", amountCents: 3334 },
+      { userId: "b", amountCents: 3333 },
+      { userId: "c", amountCents: 3333 },
+    ];
+    assert.equal(wasEqualSplit(10000, shares, 2), true);
+    assert.equal(
+      wasEqualSplit(10000, [shares[1], shares[2], shares[0]], 2),
+      true,
+    );
+  });
+  it("does not call an uneven split equal", () => {
+    const uneven = [
+      { userId: "a", amountCents: 7000 },
+      { userId: "b", amountCents: 3000 },
+    ];
+    assert.equal(wasEqualSplit(10000, uneven, 2), false);
+    assert.equal(wasEqualSplit(10000, [], 2), false);
+  });
+});
+
+function rng(seed: number) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+describe("fuzz: equal splits entered in any currency reopen as equal", () => {
+  // realistic units-per-USD rates, incl. the coarse ones (JPY, KRW, THB, INR)
+  const RATES: [string, number, 0 | 2][] = [
+    ["USD", 1, 2],
+    ["EUR", 0.89015, 2],
+    ["GBP", 0.74617, 2],
+    ["CAD", 1.38, 2],
+    ["CHF", 0.88, 2],
+    ["THB", 33.575, 2],
+    ["INR", 83.2, 2],
+    ["JPY", 157.88, 0],
+    ["KRW", 1325.57, 0],
+  ];
+  const rand = rng(20261023);
+  const int = (a: number, b: number) => a + Math.floor(rand() * (b - a + 1));
+
+  for (let run = 0; run < 1500; run++) {
+    it(`run ${run}`, () => {
+      const [, rate, dec] = RATES[int(0, RATES.length - 1)];
+      const unit = dec === 0 ? 100 : 1;
+      const n = int(2, 8);
+      const ids = Array.from({ length: n }, (_, k) => `u${k}`);
+      const orig = int(1, dec === 0 ? 500000 : 3000000) * unit;
+      const entered = splitEqually(Math.round(orig / unit), ids).map((s) => ({
+        userId: s.userId,
+        amountCents: s.amountCents * unit,
+      }));
+      const usdTotal = toUsdCents(orig, rate);
+      const usd = convertShares(entered, usdTotal);
+      if (usdTotal < 1 || usd.some((s) => s.amountCents < 1)) return; // rejected at entry
+      assert.equal(wasEqualSplit(orig, usd, dec), true);
     });
   }
 });

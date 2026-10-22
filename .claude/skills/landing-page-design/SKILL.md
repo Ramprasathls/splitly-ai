@@ -14,8 +14,9 @@ The page must feel like the product: instant, friendly, zero ceremony.
 ## Hard rules
 
 1. **Theme tokens only.** Colors come from the CSS variables in
-   `app/globals.css` (currently tweakcn *northern-lights*: aurora-green
-   `primary`, blue `secondary`, cyan `accent`). Never hardcode hex values.
+   `app/globals.css` (currently tweakcn *claymorphism*: indigo `primary`,
+   warm-gray surfaces, 1.25rem radius, clay shadows). Never hardcode hex
+   values. Re-check the visuals whenever the theme changes.
    Emerald = money owed to you, rose = money you owe — reserve them for
    money, don't decorate with them.
 2. **shadcn/ui components** from `components/ui/` for anything interactive
@@ -25,8 +26,10 @@ The page must feel like the product: instant, friendly, zero ceremony.
    words, subhead ≤ 2 sentences, feature blurbs ≤ 12 words. Every section
    earns its place or gets cut.
 4. **Auth-aware CTAs.** Signed-out: `SignUpButton mode="modal"`. Signed-in:
-   link to `/dashboard` (`<Show when="signed-in">` / `fallback`). Never a
-   dead CTA.
+   link to `/dashboard` (`<Show when="signed-in" fallback={…}>`). Never a
+   dead CTA. Reading the session needs `<Suspense>` (Cache Components):
+   `components/landing-cta.tsx` wraps it with a same-size placeholder so
+   the layout never jumps.
 5. **Server component.** The landing page stays a server component; extract
    client islands only for real interactivity.
 
@@ -36,7 +39,9 @@ The page must feel like the product: instant, friendly, zero ceremony.
    primary CTA. Below it, a *product proof*: a mocked "who owes whom" card
    showing 5 messy debts collapsing to 2 payments — the algorithm IS the
    pitch. Render it with real UI components (Card, Badge, avatars), not a
-   screenshot.
+   screenshot, and compute the result with the product's own
+   `simplifyDebts()` (`components/debt-proof.tsx`) — only the IOU list is
+   data; the "2 payments" must never be hard-coded.
 2. **Three features, one row** — equal Cards: flexible splits ("equally, by
    %, exact"), any currency ("¥, €, ₹ in one group"), one-tap settle
    ("fewest possible payments"). Icon (lucide), 3-word title, one line.
@@ -47,15 +52,19 @@ The page must feel like the product: instant, friendly, zero ceremony.
 
 ## Feel
 
-- Whitespace over borders; `bg-muted/40` section alternation, generous
-  `py-20`+ section padding, `max-w-5xl` container like the app.
+- Whitespace over borders; alternate sections with `bg-card/60` (in
+  claymorphism `--muted` equals the page background, so `bg-muted/40` is
+  invisible — pick the token that actually contrasts in the current
+  theme), generous `py-20`+ section padding, `max-w-5xl` container.
 - Typography: `tracking-tight` bold headings (Plus Jakarta Sans is already
   loaded); `text-muted-foreground` for all supporting text.
 - Motion: playful but cheap — `tw-animate-css` entrance fades/slides,
   hover micro-interactions (lift, tilt-to-straighten), and slow ambient
   float on *decorative* accents only (e.g. background currency glyphs).
   Nothing parallax, nothing that competes with the CTA, no client JS for
-  decoration.
+  decoration. Prefix animation classes with `motion-safe:`; the float
+  keyframes live in `app/globals.css`. Hide decorative glyphs on phones
+  (`hidden sm:block`) — they sit behind the headline there.
 - Personality: currency glyphs (¥ € ₹ $) as decoration are welcome — they're
   text, not emoji. Microcopy can wink once per page (e.g. "No spreadsheets
   were harmed"), never twice.
@@ -66,6 +75,8 @@ The page must feel like the product: instant, friendly, zero ceremony.
 ## Checklist before done
 
 - [ ] Renders correctly signed-in AND signed-out
-- [ ] Mobile: hero stacks, feature row wraps, no horizontal scroll
+- [ ] Mobile: hero stacks, feature row wraps, no horizontal scroll —
+      checked at a real 390px (a 390px iframe on the same origin; Chrome's
+      headless window can't go below ~500px, so `--window-size=390` lies)
 - [ ] All colors are theme tokens; money colors only on money
 - [ ] `npm run build` passes; page stays a server component

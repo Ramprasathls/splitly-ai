@@ -43,6 +43,16 @@ execute exactly the associated steps.
    removed in v7.
 4. Finish by telling me to run `clerk doctor` to verify the integration.
 
+Notes from the real run:
+- `clerk` is not installed globally by default. Use
+  `npx -y clerk@latest <init|env pull|doctor>` when the command isn't found.
+- Next 16 has Cache Components on: anything that reads the session
+  (`<Show>`, `<SignIn>` / `<SignUp>`, `usePathname()`) must sit inside
+  `<Suspense>`, or `next build` fails with a "Blocking Route" error.
+- A bare `clerkMiddleware()` protects nothing: use `createRouteMatcher` +
+  `await auth.protect()` for `/dashboard` and `/groups`, and keep
+  `/api/webhooks/*` out of it.
+
 ### /architect-math  (Phase 4 — debt logic)
 1. Enter plan mode. Do NOT write application code yet.
 2. Based on `.context/3-database-schema.md`, output a markdown walkthrough
@@ -54,8 +64,16 @@ execute exactly the associated steps.
 ### /webhook-sync  (Phase 5 — user sync)
 1. Write `app/api/webhooks/clerk/route.ts` using `verifyWebhook` from
    `@clerk/nextjs/webhooks` (NOT hand-rolled svix verification).
-2. Handle `user.created`, `user.updated`, `user.deleted` with idempotent
-   upserts/deletes into the Prisma `User` table.
-3. Tell me to expose localhost with a tunnel and register the endpoint
-   with `clerk api` (or the Dashboard), then set
-   `CLERK_WEBHOOK_SIGNING_SECRET` in `.env.local`.
+2. Handle `user.created` / `user.updated` with idempotent upserts into the
+   Prisma `User` table, and `user.deleted` replay-safely: delete the row if
+   the user has no expenses, splits or settlements; otherwise ANONYMIZE it
+   (name "Deleted user", placeholder email, no avatar). Those tables
+   reference `User` with no cascade, so a plain delete would fail, return
+   500 and make Svix retry forever. The logic lives in `lib/user-sync.ts`
+   (`syncUser`, `removeUser`), shared with `ensureUser`.
+3. Tell me to open the tunnel with
+   `npx clerk@latest webhooks listen --forward-to http://localhost:3000/api/webhooks/clerk`,
+   add the relay URL it prints as an endpoint in the Clerk Dashboard
+   (events: user.created, user.updated, user.deleted), then set
+   `CLERK_WEBHOOK_SIGNING_SECRET` in `.env.local`. (No `clerk api` command
+   creates webhook endpoints.)
