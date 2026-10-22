@@ -10,13 +10,16 @@ import { MembersList } from "@/components/members-list";
 import { Separator } from "@/components/ui/separator";
 import { ensureUser } from "@/lib/ensure-user";
 import { getGroupDetail } from "@/lib/queries";
+import { getDisplay } from "@/lib/rates";
 
 export default async function GroupPage({
   params,
+  searchParams,
 }: PageProps<"/groups/[groupId]">) {
   const { userId } = await auth.protect();
   await ensureUser();
   const { groupId } = await params;
+  const display = await getDisplay((await searchParams).currency);
   const group = await getGroupDetail(userId, groupId);
   if (!group) notFound();
 
@@ -29,11 +32,14 @@ export default async function GroupPage({
           <h1 className="text-3xl font-semibold">{group.name}</h1>
           <div className="mt-3 flex items-center gap-3">
             <MemberAvatars members={group.members} />
-            <BalancePill cents={group.yourBalanceCents} />
+            <BalancePill cents={group.yourBalanceCents} display={display} />
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <CurrencySelect />
+          <CurrencySelect
+            value={display.currency}
+            basePath={`/groups/${group.id}`}
+          />
           <ExpenseModal
             groupId={group.id}
             members={group.members}
@@ -47,6 +53,7 @@ export default async function GroupPage({
           <h2 className="mb-3 text-xl font-medium">Activity</h2>
           <ActivityList
             groupId={group.id}
+            display={display}
             expenses={group.expenses}
             settlements={group.settlements}
             members={group.members}
@@ -58,6 +65,7 @@ export default async function GroupPage({
           <h2 className="mb-3 text-xl font-medium">Who owes whom</h2>
           <DebtsCard
             groupId={group.id}
+            display={display}
             debts={group.simplifiedDebts}
             members={group.members}
             currentUserId={currentUserId}

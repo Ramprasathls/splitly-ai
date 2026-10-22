@@ -1,4 +1,5 @@
-import { ENTRY_CURRENCIES } from "@/lib/currencies";
+import { CURRENCIES, currencyDecimals } from "@/lib/currencies";
+import { convertShares, toUsdCents, type Rates } from "@/lib/fx";
 import { parseAmountToCents } from "@/lib/money";
 import { computeSplits, type SplitInput } from "@/lib/splits";
 
@@ -8,16 +9,19 @@ export type ExpenseInput = {
   amount: string;
   currency: string;
   paidById: string;
-  /** How to divide the amount. The server computes the shares itself. */
+  /** How to divide the amount, in the entered currency. */
   split: SplitInput;
 };
 
 export type ParsedExpense = {
   description: string;
   paidById: string;
+  /** USD cents — converted once, here, at entry. */
   amountCents: number;
+  /** The amount as entered, in hundredths of `originalCurrency`. */
   originalAmountCents: number;
   originalCurrency: string;
+  /** USD shares, summing exactly to amountCents. */
   splits: { userId: string; amountCents: number }[];
 };
 
@@ -50,10 +54,15 @@ function isSplitInput(value: unknown): value is SplitInput {
  * The single validation path for add AND edit. The client is never trusted:
  * shapes, members, amounts and the split total are all re-checked here, and
  * the shares are computed here, never taken from the client.
+ *
+ * `rates` (units per 1 USD) is only needed for non-USD entries. The entry is
+ * split in its own currency first (so "by exact amounts" adds up in euros, say),
+ * then converted ONCE to USD, with the shares reconciled to sum exactly.
  */
 export function parseExpenseInput(
   input: ExpenseInput,
   groupMemberIds: string[],
+  rates: Rates | null = null,
 ): ParsedExpense | { error: string } {
   if (
     !input ||
@@ -71,11 +80,14 @@ export function parseExpenseInput(
     return { error: "Enter a description (max 120 characters)" };
   }
 
-  if (!(ENTRY_CURRENCIES as readonly string[]).includes(input.currency)) {
+  if (!(CURRENCIES as readonly string[]).includes(input.currency)) {
     return { error: "Unsupported currency" };
   }
 
-  const amountCents = parseAmountToCents(input.amount);
+  const amountCents = parseAmountToCents(
+    input.amount,
+    currencyDecimals(input.currency),
+  );
   if (amountCents === null) return { error: "Enter a valid amount" };
 
   if (!groupMemberIds.includes(input.paidById)) {
@@ -94,14 +106,27 @@ export function parseExpenseInput(
     return { error: "Only group members can share an expense" };
   }
 
-  const splits = computeSplits(amountCents, input.split);
-  if ("error" in splits) return splits;
+  // 1. Split in the entered currency.
+  const enteredShares = computeSplits(amountCents, input.split);
+  if ("error" in enteredShares) return enteredShares;
 
-  // Phase 7 converts non-USD entries; until then USD is the only entry currency.
+  // 2. Convert once to USD at today's rate.
+  const unitsPerUsd = input.currency === "USD" ? 1 : rates?.[input.currency];
+  if (!unitsPerUsd) {
+    return { error: "Exchange rates are unavailable — try again shortly" };
+  }
+  const usdTotal = toUsdCents(amountCents, unitsPerUsd);
+
+  // 3. Convert the shares proportionally, reconciled to the USD total.
+  const splits = convertShares(enteredShares, usdTotal);
+  if (usdTotal < 1 || splits.some((s) => s.amountCents < 1)) {
+    return { error: "Amount is too small to split that way" };
+  }
+
   return {
     description,
     paidById: input.paidById,
-    amountCents,
+    amountCents: usdTotal,
     originalAmountCents: amountCents,
     originalCurrency: input.currency,
     splits,

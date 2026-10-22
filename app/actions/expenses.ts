@@ -5,6 +5,15 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { parseExpenseInput, type ExpenseInput } from "@/lib/expenses";
 import { requireMembership } from "@/lib/group-access";
+import { getRates } from "@/lib/rates";
+
+// Rates are only needed for non-USD entries (and only for known currencies).
+async function ratesFor(input: ExpenseInput) {
+  const currency = input?.currency;
+  return typeof currency === "string" && currency !== "USD"
+    ? await getRates()
+    : null;
+}
 
 function revalidateGroup(groupId: string) {
   revalidatePath(`/groups/${groupId}`);
@@ -21,7 +30,11 @@ export async function addExpense(
   const access = await requireMembership(groupId);
   if ("error" in access) return access;
 
-  const parsed = parseExpenseInput(input, access.memberIds);
+  const parsed = parseExpenseInput(
+    input,
+    access.memberIds,
+    await ratesFor(input),
+  );
   if ("error" in parsed) return parsed;
 
   const { splits, ...fields } = parsed;
@@ -46,7 +59,11 @@ export async function updateExpense(
   const access = await requireMembership(groupId);
   if ("error" in access) return access;
 
-  const parsed = parseExpenseInput(input, access.memberIds);
+  const parsed = parseExpenseInput(
+    input,
+    access.memberIds,
+    await ratesFor(input),
+  );
   if ("error" in parsed) return parsed;
 
   const { splits, ...fields } = parsed;

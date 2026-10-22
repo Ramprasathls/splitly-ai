@@ -33,9 +33,15 @@ export function formatBp(bp: number): string {
   return (bp / 100).toFixed(2).replace(/\.?0+$/, "");
 }
 
-/** 1250 → "12.50" (integer math, safe for form fields). */
-export function formatCentsInput(cents: number): string {
-  return `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
+/**
+ * 1250 → "12.50" (integer math, safe for form fields). Zero-decimal
+ * currencies (JPY, KRW) format as whole units: 450000 → "4500".
+ */
+export function formatCentsInput(cents: number, decimals: 0 | 2 = 2): string {
+  const whole = Math.floor(cents / 100);
+  return decimals === 0
+    ? String(whole)
+    : `${whole}.${String(cents % 100).padStart(2, "0")}`;
 }
 
 /**
@@ -148,6 +154,7 @@ export function defaultSplitValues(
   mode: SplitMode,
   userIds: string[],
   totalCents: number | null,
+  decimals: 0 | 2 = 2,
 ): Record<string, string> {
   if (mode === "equal" || userIds.length === 0) return {};
   if (mode === "percent") {
@@ -159,10 +166,12 @@ export function defaultSplitValues(
     );
   }
   if (totalCents === null) return {};
+  // Zero-decimal currencies divide in whole units, never fractions of a yen.
+  const unit = decimals === 0 ? 100 : 1;
   return Object.fromEntries(
-    splitEqually(totalCents, userIds).map((s) => [
+    splitEqually(Math.round(totalCents / unit), userIds).map((s) => [
       s.userId,
-      formatCentsInput(s.amountCents),
+      formatCentsInput(s.amountCents * unit, decimals),
     ]),
   );
 }

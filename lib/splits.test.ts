@@ -172,6 +172,12 @@ describe("edit-form helpers", () => {
     const ex = defaultSplitValues("exact", ["a", "b", "c"], 1000);
     assert.deepEqual(ex, { a: "3.34", b: "3.33", c: "3.33" });
     assert.ok(Array.isArray(computeSplits(1000, exact(...Object.entries(ex)))));
+    // zero-decimal currency (¥1,000 = 100000 hundredths) splits in whole units
+    assert.deepEqual(defaultSplitValues("exact", ["a", "b", "c"], 100000, 0), {
+      a: "334",
+      b: "333",
+      c: "333",
+    });
     assert.deepEqual(defaultSplitValues("exact", ["a"], null), {});
     assert.deepEqual(defaultSplitValues("equal", ["a"], 1000), {});
   });

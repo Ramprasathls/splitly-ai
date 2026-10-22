@@ -24,7 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ENTRY_CURRENCIES } from "@/lib/currencies";
+import { CURRENCIES, currencyDecimals } from "@/lib/currencies";
+import { reconstructShares } from "@/lib/fx";
 import { formatCents } from "@/lib/format";
 import { displayName } from "@/lib/members";
 import { parseAmountToCents } from "@/lib/money";
@@ -52,7 +53,7 @@ type FormState = {
   values: Record<string, string>;
 };
 
-const CURRENCY_ITEMS = ENTRY_CURRENCIES.map((c) => ({ value: c, label: c }));
+const CURRENCY_ITEMS = CURRENCIES.map((c) => ({ value: c, label: c }));
 const SPLIT_ITEMS: { value: SplitMode; label: string }[] = [
   { value: "equal", label: "equally" },
   { value: "percent", label: "by percentages" },
@@ -69,21 +70,29 @@ function initialState(
   expense?: Expense,
 ): FormState {
   if (expense) {
-    // Equal-ish splits reopen as "equally"; anything else as exact amounts.
-    const mode = inferSplitMode(expense.splits);
+    // Stored splits are USD; rebuild the shares in the ENTERED currency (same
+    // proportional exact-sum math as entry). Equal-ish splits reopen as
+    // "equally"; anything else as exact amounts.
+    const decimals = currencyDecimals(expense.originalCurrency);
+    const entered = reconstructShares(
+      expense.originalAmountCents,
+      expense.splits,
+      decimals,
+    );
+    const mode = inferSplitMode(entered);
     return {
       description: expense.description,
-      amount: formatCentsInput(expense.originalAmountCents),
+      amount: formatCentsInput(expense.originalAmountCents, decimals),
       currency: expense.originalCurrency,
       paidById: expense.paidById,
       mode,
-      included: expense.splits.map((s) => s.userId),
+      included: entered.map((s) => s.userId),
       values:
         mode === "exact"
           ? Object.fromEntries(
-              expense.splits.map((s) => [
+              entered.map((s) => [
                 s.userId,
-                formatCentsInput(s.amountCents),
+                formatCentsInput(s.amountCents, decimals),
               ]),
             )
           : {},
@@ -127,7 +136,8 @@ export function ExpenseModal({
   const included = members
     .filter((m) => form.included.includes(m.id))
     .map((m) => m.id);
-  const amountCents = parseAmountToCents(form.amount);
+  const decimals = currencyDecimals(form.currency);
+  const amountCents = parseAmountToCents(form.amount, decimals);
 
   const splitInput: SplitInput =
     form.mode === "equal"
@@ -159,7 +169,7 @@ export function ExpenseModal({
     if (sum !== 10_000) hint = `Percentages add up to ${formatBp(sum)}%`;
   } else if (form.mode === "exact" && amountCents !== null) {
     const assigned = included.reduce(
-      (s, id) => s + (parseAmountToCents(form.values[id] ?? "") ?? 0),
+      (s, id) => s + (parseAmountToCents(form.values[id] ?? "", 2) ?? 0),
       0,
     );
     const left = amountCents - assigned;
@@ -168,6 +178,9 @@ export function ExpenseModal({
   }
   if (!hint && result && "error" in result && amountCents !== null) {
     hint = result.error;
+  }
+  if (amountCents === null && decimals === 0 && form.amount.includes(".")) {
+    hint = `${form.currency} has no decimals`;
   }
 
   const canSave =
@@ -186,7 +199,27 @@ export function ExpenseModal({
 
   // Switching modes or who's included restarts from a valid equal split.
   function changeMode(mode: SplitMode) {
-    patch({ mode, values: defaultSplitValues(mode, included, amountCents) });
+    patch({
+      mode,
+      values: defaultSplitValues(mode, included, amountCents, decimals),
+    });
+  }
+
+  // Exact amounts restart from an equal split in the new currency's units.
+  function changeCurrency(currency: string) {
+    const nextDecimals = currencyDecimals(currency);
+    patch({
+      currency,
+      values:
+        form.mode === "exact"
+          ? defaultSplitValues(
+              "exact",
+              included,
+              parseAmountToCents(form.amount, nextDecimals),
+              nextDecimals,
+            )
+          : form.values,
+    });
   }
 
   function toggleMember(id: string, checked: boolean) {
@@ -196,7 +229,7 @@ export function ExpenseModal({
     const ordered = members.filter((m) => next.includes(m.id)).map((m) => m.id);
     patch({
       included: next,
-      values: defaultSplitValues(form.mode, ordered, amountCents),
+      values: defaultSplitValues(form.mode, ordered, amountCents, decimals),
     });
   }
 
@@ -279,7 +312,7 @@ export function ExpenseModal({
               <Select
                 items={CURRENCY_ITEMS}
                 value={form.currency}
-                onValueChange={(v) => v && patch({ currency: v })}
+                onValueChange={(v) => v && changeCurrency(v)}
               >
                 <SelectTrigger aria-label="Currency" className="w-28">
                   <SelectValue />

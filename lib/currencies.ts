@@ -1,6 +1,5 @@
-// Currencies supported for entry and display (ECB reference rates).
-// Conversion arrives in Phase 7; until then USD is the only usable currency,
-// so the UI and the server action both restrict entry to ENTRY_CURRENCIES.
+// Currencies supported for entry and display (ECB reference rates via
+// frankfurter.dev). The ledger itself is always USD.
 export const CURRENCIES = [
   "USD",
   "EUR",
@@ -26,4 +25,18 @@ export const CURRENCIES = [
 
 export type Currency = (typeof CURRENCIES)[number];
 
-export const ENTRY_CURRENCIES: readonly Currency[] = ["USD"];
+// Currencies with no minor unit: entered as whole units ("4500", never "45.5").
+// Amounts are still stored as hundredths of a unit, like every other currency.
+const ZERO_DECIMAL: readonly string[] = ["JPY", "KRW"];
+
+export function currencyDecimals(currency: string): 0 | 2 {
+  return ZERO_DECIMAL.includes(currency) ? 0 : 2;
+}
+
+/** Validates a `?currency=` value; anything unknown falls back to USD. */
+export function parseCurrency(value: string | string[] | undefined): Currency {
+  const code = Array.isArray(value) ? value[0] : value;
+  return (CURRENCIES as readonly string[]).includes(code ?? "")
+    ? (code as Currency)
+    : "USD";
+}

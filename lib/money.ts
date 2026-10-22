@@ -1,11 +1,19 @@
 // Money is integer cents everywhere. No floats touch a stored amount.
 
 const AMOUNT_PATTERN = /^\d{1,9}(\.\d{1,2})?$/;
+const WHOLE_AMOUNT_PATTERN = /^\d{1,9}$/;
 
-/** "12.5" → 1250. Returns null for anything that isn't a positive amount. */
-export function parseAmountToCents(input: string): number | null {
+/**
+ * "12.5" → 1250 (hundredths of a unit). Null for anything that isn't a positive
+ * amount. `decimals: 0` (JPY, KRW) accepts whole units only.
+ */
+export function parseAmountToCents(
+  input: string,
+  decimals: 0 | 2 = 2,
+): number | null {
   const trimmed = input.trim();
-  if (!AMOUNT_PATTERN.test(trimmed)) return null;
+  const pattern = decimals === 0 ? WHOLE_AMOUNT_PATTERN : AMOUNT_PATTERN;
+  if (!pattern.test(trimmed)) return null;
   const [whole, fraction = ""] = trimmed.split(".");
   const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
   return cents > 0 ? cents : null;

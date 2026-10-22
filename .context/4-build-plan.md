@@ -72,12 +72,12 @@ with pictures, not longer prompts:
 
 ## 07 Multi-Currency
 
-- [ ] Expense entry in 20 ECB currencies; server converts once to USD at
+- [x] Expense entry in 20 ECB currencies; server converts once to USD at
       save (frankfurter.dev, 1h cache); original amount + currency stored
-- [ ] Splits converted proportionally with exact-sum reconciliation
-- [ ] Display-currency switcher (`?currency=`) on dashboard + group page;
+- [x] Splits converted proportionally with exact-sum reconciliation
+- [x] Display-currency switcher (`?currency=`) on dashboard + group page;
       converts balances, debts, totals, shares at today's rate
-- [ ] Expense rows show original amount + display-currency equivalent
+- [x] Expense rows show original amount + display-currency equivalent
 
 ## 08 AI Quick-Add
 
