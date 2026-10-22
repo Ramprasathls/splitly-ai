@@ -98,10 +98,10 @@ with pictures, not longer prompts:
 
 ## 10 Landing Page
 
-- [ ] Build `app/page.tsx` from the `landing-page-design` skill
-- [ ] Hero + proof card (5 IOUs → 2 payments, real math, real components)
-- [ ] Feature cards, 3-step how-it-works, final CTA; auth-aware CTAs
-- [ ] Fun pass: floating currency glyphs, tilt/hover micro-motion,
+- [x] Build `app/page.tsx` from the `landing-page-design` skill
+- [x] Hero + proof card (5 IOUs → 2 payments, real math, real components)
+- [x] Feature cards, 3-step how-it-works, final CTA; auth-aware CTAs
+- [x] Fun pass: floating currency glyphs, tilt/hover micro-motion,
       entrance fades, one microcopy wink
 
 ## 11 Feedback & List Actions
