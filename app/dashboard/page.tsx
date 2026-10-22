@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { BalancePill } from "@/components/balance-pill";
 import { CreateGroupForm } from "@/components/create-group-form";
 import { CurrencySelect } from "@/components/currency-select";
@@ -18,7 +18,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ currency?: string | string[] }>;
 }) {
   const { userId } = await auth.protect();
-  const [user] = await Promise.all([currentUser(), ensureUser()]);
+  const user = await ensureUser();
   const [groups, display] = await Promise.all([
     getGroups(userId),
     searchParams.then((p) => getDisplay(p.currency)),
@@ -40,7 +40,7 @@ export default async function DashboardPage({
     <main className="mx-auto w-full max-w-6xl px-6 py-10">
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-3xl font-semibold">
-          Welcome back, {user?.firstName ?? "there"} 👋
+          Welcome back, {user?.name.split(" ")[0] ?? "there"} 👋
         </h1>
         <CurrencySelect value={display.currency} basePath="/dashboard" />
       </div>

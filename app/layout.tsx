@@ -27,7 +27,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${poppins.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      {/* Browser extensions (e.g. Grammarly) add attributes to <body> before
+          hydration; this silences only that element's attribute diff. */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <ClerkProvider>
           <SiteHeader />
           {children}
